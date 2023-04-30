@@ -1,0 +1,34 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlserver"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id Int @id @default(autoincrement())
+  email String @unique
+  username String @unique
+  todoLists TodoList[]
+}
+
+model TodoList {
+  id Int @id @default(autoincrement())
+  owner User @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+  ownerId Int
+  name String
+  todos Todo[]
+}
+
+model Todo {
+  id Int @id @default(autoincrement())
+  list TodoList @relation(fields: [listId], references: [id], onDelete: Cascade)
+  listId Int
+  description String
+  completed Boolean
+}
