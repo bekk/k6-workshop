@@ -8,7 +8,7 @@ For this workshop you need:
 * [npm & node 18](https://nodejs.org/en/download/package-manager)
 * [k6](https://k6.io/docs/get-started/installation/)
 
-If you're using `brew`, `brew install k6 node@18` installs npm, node and k6. Docker must be installed in another way.
+If you're using `nvm` to mange node, run `nvm use 18`. If you're using `brew`, `brew install k6 node@18` installs npm, node and k6. Docker must be installed in another way.
 
 ## Getting started
 
