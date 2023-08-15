@@ -12,6 +12,7 @@ For this workshop you need:
 1. Clone the repository: `git clone https://github.com/bekk/k6-workshop`.
 2. Run `docker-compose up -d` to start the docker containers in the background.
 3. Run `docker-compose logs --follow k6-todo` to view the application logs.
+4. The app is available at `localhost:3000`. Verify the app is running correctly by running `curl localhost:3000/healthcheck`, or opening the `localhost:3000/healthcheck` in the browser. You should see a message stating that the database connection is ok.
 
 You should now be ready to go! *After the workshop* you can clean up resources by running `docker-compose down` from the repository root.
 
