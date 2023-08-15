@@ -4,23 +4,16 @@
 
 For this workshop you need:
 
-* Docker (any variety)
-* [npm & node 18](https://nodejs.org/en/download/package-manager)
+* Docker and docker-compose. This tutorial assumes a Docker-compatible CLI is used to run the demo app and database, but any compatible tool can be used.
 * [k6](https://k6.io/docs/get-started/installation/)
-
-If you're using `nvm` to mange node, run `nvm use 18`. If you're using `brew`, `brew install k6 node@18` installs npm, node and k6. Docker must be installed in another way.
 
 ## Getting started
 
-1. Clone the repository: `git clone https://github.com/bekk/k6-workshop`
+1. Clone the repository: `git clone https://github.com/bekk/k6-workshop`.
+2. Run `docker-compose up -d` to start the docker containers in the background.
+3. Run `docker-compose logs --follow k6-todo` to view the application logs.
 
-2. From anywhere, run `docker run -e "ACCEPT_EULA=Y" -e 'MSSQL_SA_PASSWORD=k6-workshop!' -p 1433:1433 -d --name k6-workshop-database --rm mcr.microsoft.com/azure-sql-edge:latest` to start a database in a container in the background. (After the workshop: Run `docker stop k6-workshop-database` to stop and remove the database.)
-
-3. From the repository root folder, run `npm ci`, followed by `npx prisma migrate dev` and `npm run dev` to start the demo app.
-
-
-
-You should now be ready to go!
+You should now be ready to go! *After the workshop* you can clean up resources by running `docker-compose down` from the repository root.
 
 ## Tasks
 
@@ -192,3 +185,9 @@ We'll implement all of these scenarios, but for the sake of the tutorial and sho
 
 8. Finally, for **scenario 4**, we're looking at a scenario with repeating spikes in traffic every "hour", typical for applications with batch jobs that runs every hour/day/etc. There are no executors that directly support this repeated spike pattern, but we can use different methods to simulate it. We'll use a the [constant arrival rate executor](https://k6.io/docs/using-k6/scenarios/executors/constant-arrival-rate/) again, with `rate = 1` and `timeUnit = 5s` deleting 20 users with a loop in the scenario function (what should `duration` and `preAllocatedVUs` be, and why does this work?). We'll have to create the users to delete in `setup()`. Since scenario 2 also creates data in setup, we'll have to make sure they don't interfere which each other's test data. This can be achieved by returning an object like `{ todoScenarioTodoListIds: number[], batchScenarioUserIds: number[] }`, each scenario reading their respective lists. Change the `setup()` function, and update scenario 2 to match. Implement the `batch` scenario function to use the correct array in the object parameter, and loop over the 20 next users. Use the `scenario.iterationInInstance` [execution environment variable](https://k6.io/docs/javascript-api/k6-execution/#scenario) to keep track of where you are in the array. Run the test
   
+## Running the app locally
+
+If you want to run the app locally, outside a Docker container, you need [npm and node 18](https://nodejs.org/en/download/package-manager). If you're using `nvm` to mange node, run `nvm use 18`. If you're using `brew`, `brew install node@18` installs both.
+
+1. Spin up the database in a container: From anywhere, run `docker run -e "ACCEPT_EULA=Y" -e 'MSSQL_SA_PASSWORD=k6-workshop!' -p 1433:1433 -d --name k6-workshop-database --rm mcr.microsoft.com/azure-sql-edge:latest` to start a database in a container in the background. (After the workshop: Run `docker stop k6-workshop-database` to stop and remove the database.)
+2. From the repository root folder, run `npm ci`, followed by `npx prisma migrate dev` and `npm run dev` to start the demo app.
