@@ -7,9 +7,20 @@ const app = express()
 
 app.use(express.json())
 
-app.get('/healthcheck', async (_req, res) => {
-  res.status(200).json({});
-})
+type HealtcheckResponseDto = { message: string }
+app.get('/healthcheck', async (req: Request<{}, HealtcheckResponseDto>, res, next) => {
+  logRequest(req)
+  try {
+    await prisma.$connect()
+    res.status(200).json({message: "Database connection ok."});
+  } catch (err: unknown) {
+    if (err instanceof Prisma.PrismaClientInitializationError) {
+      res.status(501).json({message: err.message});
+    } else {
+      next(err);
+    }
+  }
+});
 
 type Dto<T extends object> = {
   [K in keyof T]: string
