@@ -38,34 +38,64 @@ You should now be ready to go! *After the workshop* you can clean up resources b
       http.post(`${BASE_URL}/users`, JSON.stringify({
         username: username,
         email: email
-      }), { 
+      }), {
         headers: { 'Content-Type': 'application/json' },
       })
-    } 
+    }
   ```
 
 2. From the command line in the `load-tests` folder, run: `k6 run create-users.js`. This should produce some output, including a table of statistics. Right now we want the row starting with `http_req_failed`. This should say `0.00%`, meaning all (in this case, a single request) succeeded with a successful status code.
 
     **So, what happens when k6 runs the file?** The default exported function in the file is assumed to be the load test by k6. `http.post` performs a single HTTP POST request towards the `/users` endpoint, with the payload and headers specified in the code. The payload object is converted to string by using `JSON.stringify`, since k6 doesn't do that for us. [`http` is a k6 library](https://k6.io/docs/javascript-api/k6-http/) that is needed for generating proper statistics for requests and responses, using `fetch` or other native JS methods won't work properly. The `utils.js` module contains some helpers to simplify the code in this workshop.
 
-3. Let's generate more than one request! 📈
+3. Let's generate more than one request! :chart_with_upwards_trend:
 
     Run: `k6 run --duration 5s --vus 100 create-users.js`
 
-    Here, we simulate 100 virtual users (VUs) making continuous requests for 5 seconds. Depending on hardware, OS and other factors, you might see warnings about dropped connections. Take a look at the `iterations` field in the output, which shows the total number of times the default exported function is run (the above command runs ~1800 iterations on a 2019 MacBook Pro running towards a local Docker container). Try experimenting with a different VUs and durations to see what the limits of the system you're testing are. Be aware: doing this in the cloud might incur unexpected costs and/or troubles for other services on shared infrastructure! ⚠
+    Here, we simulate 100 virtual users (VUs) making continuous requests for 5 seconds. Depending on hardware, OS and other factors, you might see warnings about dropped connections. Take a look at the `iterations` field in the output, which shows the total number of times the default exported function is run (the above command runs ~1800 iterations on a 2019 MacBook Pro running towards a local Docker container). Try experimenting with a different VUs and durations to see what the limits of the system you're testing are.
 
-4. The previous test is not realistic, because it's the equivalent of a 100 users simultaneously clicking a "Create user" button as fast as they can. Therefore, `sleep` can be used to simulate natural delays in usage (e.g., to simulate polling at given intervals, delays caused by network, user interactions and/or rendering of UI). At the top of the file, add `import { sleep } from 'k6'`, and at the bottom of the function (after the `http.post`) add `sleep(1)` to sleep for one second. Running the command from the previous step should now result in about 500 iterations (5s * 100 users), but throttling (network, database, etc.) might cause additional delays and fewer iterations.
+    :warning: Doing this in the cloud might incur unexpected costs and/or troubles for other services on shared infrastructure!
 
-    If you can look at the logs, observe that the requests occur in batches. All virtual users run their requests at approximately the same time, then sleeps for a second, and so on. We'll look at how to more realistically distribute the load using other methods later.
+4. The previous test is not realistic, because it's the equivalent of a 100 users simultaneously clicking a "Create user" button as fast as they can. Therefore, `sleep` can be used to simulate natural delays in usage, e.g., to simulate polling at given intervals, delays caused by network, user interactions and/or rendering of UI. At the top of the file, add `import { sleep } from 'k6'`, and at the bottom of the function (after the `http.post`) add `sleep(1)` to sleep for one second. Running the command from the previous step should now result in about 500 iterations (5s * 100 users), but throttling (network, database, etc.) might cause additional delays and fewer iterations.
+
+    :bulb: If you can look at the logs, observe that the requests occur in batches. All virtual users run their requests at approximately the same time, then sleeps for a second, and so on. We'll look at how to more realistically distribute the load using other methods later.
 
 #### 1b: Checks
 
-We also want to verify that the response is correct. We can use `check` by modifying our previous import to `import { sleep, check } from 'k6'`. Check out the [documentation for `check`](https://k6.io/docs/using-k6/checks/) to see how it works.
+We also want to verify that the response is correct. We can use `check`, to test arbitrary conditions and get the result in the summary report.
+
+```js
+const response = http.post(...)
+
+// A check can contain mulltiple checks, and returns true if all checks succeed
+check(response,
+    { '200 OK': r => r.status == 200 },
+    { 'Another check': r => ... }
+)
+```
 
 1. Get the response from the POST request, and verify that the response status code is `200`. Run k6 like before, and see that the checks pass as expected.
 
-2. Add checks that verifies that `username` and `email` in the response corresponds with what was sent in the request, if the check from the previous task succeeds. *Hint: `check` returns `true` if all checks succeed, `false` if not.*
+You can get the response body by using the `Response.json()` method:
 
+```js
+const response = http.post('[...]/users', ...)
+const createdUser = response.json()
+```
+
+2. Add another call to `check` that verifies that `username` and `email` in the response corresponds with what was sent in the request. Test your solution by running k6 like before.
+
+    <details>
+
+    <summary>:moneybag: Extra credit: What if the request fails?</summary>
+
+    The request can fail, especially when load testing, resulting in errors from the k6 runtime when trying to call `Response.json()`. An easy way to handle that is to wrap the code using the response body in an `if` block.
+
+    See what happens if you try performing a request to an invalid URL, fix it and then test again. (Make sure to correct the URL again, before moving on to the next task.)
+
+    </details>
+
+:information_source: You can check out the [documentation](https://k6.io/docs/using-k6/checks/) for more information about `check`.
 
 #### 1c: Call multiple endpoints
 
@@ -110,7 +140,7 @@ We'll now move on to creating todo lists. In our domain, a single user can creat
 
 In task 2a, we had a lot of code to create and delete user just for testing the performance of creating a todo list. k6, like other testing frameworks, support setup and teardown functions. We'll refactor the code to use those.
 
-1. Read quickly through the [test lifecycle documentation page](https://k6.io/docs/using-k6/test-lifecycle/). Don't worry if all of it doesn't make sense yet. 
+1. Read quickly through the [test lifecycle documentation page](https://k6.io/docs/using-k6/test-lifecycle/). Don't worry if all of it doesn't make sense yet.
 
 2. Create `setup` and `teardown` functions that create and delete the user respectively. The `setup` function should return the `id` of the generated user, and both the VU function (the `export default function` you've already created) and the `teardown` function should take the `id` as parameter, avoiding global variables. This way we only create a single user for the test, instead of one user per iteration. As an added benefit, the code should be simpler. `check` can be used in both `setup` and `teardown` functions, so move the `check`s created in 2a to the respective methods.
 
@@ -185,7 +215,7 @@ We'll implement all of these scenarios, but for the sake of the tutorial and sho
 7. For **scenario 3** we'll have 100 users continuously signing up for 1 hour (i.e., 5s for us). We will use the [constant VUs executor](https://k6.io/docs/using-k6/scenarios/executors/constant-vus/). However, because we don't want do this from the start, but during "lunch time" the executor needs to have a delayed start. For that we'll use `startTime`, one of the [common scenario options](https://k6.io/docs/using-k6/scenarios/#options), with a good example [here](https://k6.io/docs/using-k6/scenarios/advanced-examples/#combine-scenarios). Create a function `lunchTime` that creates a single user, and a `lunchTime` scenario to execute the function. Run the test. Notice that our scenario is in a `waiting` state with a countodown until `startTime` time has passed.
 
 8. Finally, for **scenario 4**, we're looking at a scenario with repeating spikes in traffic every "hour", typical for applications with batch jobs that runs every hour/day/etc. There are no executors that directly support this repeated spike pattern, but we can use different methods to simulate it. We'll use a the [constant arrival rate executor](https://k6.io/docs/using-k6/scenarios/executors/constant-arrival-rate/) again, with `rate = 1` and `timeUnit = 5s` deleting 20 users with a loop in the scenario function (what should `duration` and `preAllocatedVUs` be, and why does this work?). We'll have to create the users to delete in `setup()`. Since scenario 2 also creates data in setup, we'll have to make sure they don't interfere which each other's test data. This can be achieved by returning an object like `{ todoScenarioTodoListIds: number[], batchScenarioUserIds: number[] }`, each scenario reading their respective lists. Change the `setup()` function, and update scenario 2 to match. Implement the `batch` scenario function to use the correct array in the object parameter, and loop over the 20 next users. Use the `scenario.iterationInInstance` [execution environment variable](https://k6.io/docs/javascript-api/k6-execution/#scenario) to keep track of where you are in the array. Run the test
-  
+
 ## Running the app locally
 
 If you want to run the app locally, outside a Docker container, you need [npm and node 18](https://nodejs.org/en/download/package-manager). If you're using `nvm` to mange node, run `nvm use 18`. If you're using `brew`, `brew install node@18` installs both.
