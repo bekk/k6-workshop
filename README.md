@@ -67,11 +67,11 @@ We also want to verify that the response is correct. We can use `check`, to test
 ```js
 const response = http.post(...)
 
-// A check can contain mulltiple checks, and returns true if all checks succeed
-check(response,
-    { '200 OK': r => r.status == 200 },
-    { 'Another check': r => ... }
-)
+// A check can contain multiple checks, and returns true if all checks succeed
+check(response, {
+     '200 OK': r => r.status == 200 ,
+     'Another check': r => ... 
+})
 ```
 
 1. Get the response from the POST request, and verify that the response status code is `200`. Run k6 like before, and see that the checks pass as expected.
