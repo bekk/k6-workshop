@@ -1,3 +1,4 @@
+import cors from 'cors'
 import express, { ErrorRequestHandler, Request, Response } from 'express'
 import { Prisma, PrismaClient } from '@prisma/client'
 
@@ -5,6 +6,7 @@ const prisma = new PrismaClient()
 
 const app = express()
 
+app.use(cors())
 app.use(express.json())
 
 type HealtcheckResponseDto = { message: string }
@@ -151,7 +153,7 @@ app.delete('/users/:id', async (req: Request<{id: string}, DeleteUserResponseDto
 
 app.get('/users', async (_req : Request<{}, User[]>, res, next) => {
   try {
-    const users = await prisma.user.findMany()
+    const users = await prisma.user.findMany({})
     res.status(200).json(users)
   }
   catch (err: unknown) {
