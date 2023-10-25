@@ -7,7 +7,11 @@
     "build": "npx tsc",
     "start": "node build/index.js",
     "dev": "concurrently \"npx tsc --watch\" \"nodemon -q build/index.js\"",
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "prisma:generate:sqlserver": "npx prisma generate --schema=./prisma/sqlserver/schema.prisma && cp ./env.sqlserver ./.env",
+    "prisma:generate:postgres": "npx prisma generate --schema=./prisma/postgres/schema.prisma && cp ./env.postgres ./.env",
+    "prisma:migrate:dev:sqlserver": "cp ./env.sqlserver ./.env && npx prisma migrate dev --schema=./prisma/sqlserver/schema.prisma",
+    "prisma:migrate:dev:postgres": "cp ./env.postgres .env && npx prisma migrate dev --schema=./prisma/postgres/schema.prisma"
   },
   "author": "Ole Kristian Pedersen",
   "license": "ISC",

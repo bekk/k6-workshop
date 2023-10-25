@@ -1,0 +1,21 @@
+version: '3.5'
+
+services:
+  k6-todo:
+    image: ghcr.io/bekk/cloud-labs-demo-todo-postgres:latest
+    environment:
+      DATABASE_URL: postgres://postgres:k6-workshop!@k6-db:5432/postgres
+
+  k6-db:
+    image: postgres:latest
+    restart: always
+    # Uncomment to open database port on host port 1433
+    ports:
+      - "127.0.0.1:5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -d $${POSTGRES_DB} -U $${POSTGRES_USER}"]
+      interval: 1s
+      timeout: 5s
+      retries: 10
+    environment:
+      POSTGRES_PASSWORD: k6-workshop!

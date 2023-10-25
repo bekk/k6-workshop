@@ -1,0 +1,21 @@
+version: '3.5'
+
+services:
+  k6-todo:
+    image: ghcr.io/bekk/cloud-labs-demo-todo-sqlserver:latest
+    environment:
+      DATABASE_URL: sqlserver://k6-db:1433;database=master;user=sa;password=k6-workshop!;trustServerCertificate=true
+
+  k6-db:
+    image: mcr.microsoft.com/azure-sql-edge:latest
+    # Uncomment to open database port on host port 1433
+    ports:
+      - "127.0.0.1:1433:1433"
+    healthcheck:
+      test: timeout 1 curl -vvv --connect-timeout 0.5 telnet://127.0.0.1:1433 || [ $? -eq 124 ]
+      interval: 10s
+      timeout: 3s
+      retries: 10
+    environment:
+      ACCEPT_EULA: Y
+      MSSQL_SA_PASSWORD: k6-workshop!
