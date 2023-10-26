@@ -10,11 +10,10 @@ For this workshop you need:
 ## Getting started
 
 1. Clone the repository: `git clone https://github.com/bekk/k6-workshop`.
-2. Run `docker-compose up -d` to start the docker containers in the background.
-3. Run `docker-compose logs --follow k6-todo` to view the application logs.
-4. The app is available at `localhost:3000`. Verify the app is running correctly by running `curl localhost:3000/healthcheck`, or opening the `localhost:3000/healthcheck` in the browser. You should see a message stating that the database connection is ok.
+2. You should have received a provisioned app by the workshop facilitator. The URL should be on the format `api.<unique-id>.cloudlabs-azure.no`.
+3. The app is available at `api.<unique-id>.cloudlabs-azure.no`. Verify the app is running correctly by running `curl https://api.<unique-id>.cloudlabs-azure.no/healthcheck`, or opening `https://api.<unique-id>.cloudlabs-azure.no/healthcheck` in the browser. You should see a message stating that the database connection is ok.
 
-You should now be ready to go! *After the workshop* you can clean up resources by running `docker-compose down` from the repository root.
+You should now be ready to go!
 
 ## Tasks
 
@@ -22,17 +21,18 @@ You should now be ready to go! *After the workshop* you can clean up resources b
 
 #### 1a: The first k6 function
 
-1. In the `load-tests` folder, create a file named `create-users.js`, and put the following code in it:
+1. Open `load-tests/contants.js`, and update `BASE_URL` with your `<unique-id>`.
+
+2. In the `load-tests` folder, create a file named `create-users.js`, and put the following code in it:
 
   ```js
     import http from 'k6/http'
+    import { randomIntBetween } from 'https://jslib.k6.io/k6-utils/1.4.0/index.js'
 
-    import { randInt } from './utils.js'
-
-    const BASE_URL = 'http://localhost:3000'
+    import { BASE_URL } from './constants.js'
 
     export default function() {
-      const username = `user-1a-${randInt(0, 1000000000)}`;
+      const username = `user-1a-${randomIntBetween(0, 1000000000)}`;
       const email = `${username}@test.no`
 
       http.post(`${BASE_URL}/users`, JSON.stringify({
@@ -44,11 +44,17 @@ You should now be ready to go! *After the workshop* you can clean up resources b
     }
   ```
 
-2. From the command line in the `load-tests` folder, run: `k6 run create-users.js`. This should produce some output, including a table of statistics. Right now we want the row starting with `http_req_failed`. This should say `0.00%`, meaning all (in this case, a single request) succeeded with a successful status code.
+3. From the command line in the `load-tests` folder, run: `k6 run create-users.js`. This should produce some output, including a table of statistics. Right now we want the row starting with `http_req_failed`. This should say `0.00%`, meaning all (in this case, a single request) succeeded with a successful status code.
 
-    **So, what happens when k6 runs the file?** The default exported function in the file is assumed to be the load test by k6. `http.post` performs a single HTTP POST request towards the `/users` endpoint, with the payload and headers specified in the code. The payload object is converted to string by using `JSON.stringify`, since k6 doesn't do that for us. [`http` is a k6 library](https://k6.io/docs/javascript-api/k6-http/) that is needed for generating proper statistics for requests and responses, using `fetch` or other native JS methods won't work properly. The `utils.js` module contains some helpers to simplify the code in this workshop.
+    **So, what happens when k6 runs the file?**
 
-3. Let's generate more than one request! :chart_with_upwards_trend:
+    * The default exported function in the file is assumed to be the load test by k6.
+    * `http.post` performs a single HTTP POST request towards the `/users` endpoint, with the payload and headers specified in the code. The payload object is converted to string by using `JSON.stringify`, since k6 doesn't do that for us. [`http` is a built-in k6 library](https://k6.io/docs/javascript-api/k6-http/) that is needed for generating proper statistics for requests and responses, using `fetch` or other native JS methods won't work properly.
+    * `randomIntBetween` is fetched from an [external k6 library, `k6-utils`](https://k6.io/docs/javascript-api/jslib/utils/), that is maintained by Grafana Labs.
+
+
+
+4. Let's generate more than one request! :chart_with_upwards_trend:
 
     Run: `k6 run --duration 5s --vus 100 create-users.js`
 
@@ -56,7 +62,7 @@ You should now be ready to go! *After the workshop* you can clean up resources b
 
     :warning: Doing this in the cloud might incur unexpected costs and/or troubles for other services on shared infrastructure!
 
-4. The previous test is not realistic, because it's the equivalent of a 100 users simultaneously clicking a "Create user" button as fast as they can. Therefore, `sleep` can be used to simulate natural delays in usage, e.g., to simulate polling at given intervals, delays caused by network, user interactions and/or rendering of UI. At the top of the file, add `import { sleep } from 'k6'`, and at the bottom of the function (after the `http.post`) add `sleep(1)` to sleep for one second. Running the command from the previous step should now result in about 500 iterations (5s * 100 users), but throttling (network, database, etc.) might cause additional delays and fewer iterations.
+5. The previous test is not realistic, because it's the equivalent of a 100 users simultaneously clicking a "Create user" button as fast as they can. Therefore, `sleep` can be used to simulate natural delays in usage, e.g., to simulate polling at given intervals, delays caused by network, user interactions and/or rendering of UI. At the top of the file, add `import { sleep } from 'k6'`, and at the bottom of the function (after the `http.post`) add `sleep(1)` to sleep for one second. Running the command from the previous step should now result in about 500 iterations (5s * 100 users), but throttling (network, database, etc.) might cause additional delays and fewer iterations.
 
     :bulb: If you can look at the logs, observe that the requests occur in batches. All virtual users run their requests at approximately the same time, then sleeps for a second, and so on. We'll look at how to more realistically distribute the load using other methods later.
 
@@ -70,7 +76,7 @@ const response = http.post(...)
 // A check can contain multiple checks, and returns true if all checks succeed
 check(response, {
      '200 OK': r => r.status == 200 ,
-     'Another check': r => ... 
+     'Another check': r => ...
 })
 ```
 
@@ -126,7 +132,7 @@ const id = createdUser.id;
 
 You might already have encountered non-successful error codes. Trying to create a user with a non-unique username or email will return a `409` response.
 
-1. Make range of the random numbers generated for the username smaller, by changing the first line in the function to: ``const username = `user-1d-${randInt(0, 100)}`;``. Adjust up the duration and VUs using `k6 run --duration 15s --vus 200 create-users.js`, and see that your tests and checks fails when running k6.
+1. Make range of the random numbers generated for the username smaller, by changing the first line in the function to: ``const username = `user-1d-${randomIntBetween(0, 100)}`;``. Adjust up the duration and VUs using `k6 run --duration 15s --vus 200 create-users.js`, and see that your tests and checks fails when running k6.
 
 2. We can specify that `409` is an expected status for the `http.post` call. We will use a *responseCallback* and give it as a parameter to the `http.post` method. Modify the `http.post` method:
 
@@ -152,7 +158,7 @@ Some services might have service level objectives (SLOs), either defined externa
 export const options = {
   thresholds: {
     http_req_failed: ['rate<0.01'], // http errors should be less than 1%
-    http_req_duration: ['avg<200', 'p(95)<500'], // average request duration should be below 200ms, 95% of requests below 500ms
+    http_req_duration: ['avg<200', 'p(99)<500'], // average request duration should be below 200ms, 99% of requests below 500ms
   },
 };
 
@@ -161,11 +167,19 @@ export default function () {
 }
 ```
 
-1. Create thresholds for testing that 99% requests are served in less than 500ms and the average response duration is less than 300ms (using the `http_req_duration` metric). Run the tests, and verify if they succeed. If you're using slow hardware, modify the thresholds so that the tests succeeed.
+1. Create thresholds for testing that 95% requests are served in less than 500ms and the average response duration is less than 300ms (using the `http_req_duration` *Trend* metric). Run the test with 100 VUs over 10 seconds, and see if they succeed.
 
-2. Change the average threshold to something very low, e.g., `10ms`. Run the tests again and verify that the thresholds fail.
+    :bulb: k6 displays the error in multiple ways by default. The default summary contains a red cross or green checkmark next to the metric, and an error message is also printed. In addition, the exit code is also erroneous, which is very useful for automated performance testing using CI/CD.
 
-:information_source: [The documentiation](https://k6.io/docs/using-k6/thresholds/) gives a good overiw of different ways to use thresholds.
+2. Modify the threshold so that it succeeds.
+
+    :information_source: [The documentiation](https://k6.io/docs/using-k6/thresholds/) gives a good overview of different ways to use thresholds.
+
+3. Add a new threshold: `'http_reqs{status:500}: ['count<1']`. This threshold is using the built-in `http_reqs` *Counter* metric, and filtering on the `status` *tag*, and setting the threshold to less than 1 (i.e., none), so that the load test will fail if we get 500 responses. Run the test with 1000 VUs over 10 seconds, and look at how it fails.
+
+4. If you want to *track* a metric (i.e., get it in the output summary), you can add a threshold without checks. Add the threshold `'http_reqs{status:200}': []` and run the tests again.
+
+    :information_source: There are [different types of metrics](https://k6.io/docs/using-k6/metrics/), and k6 has many [built-in metrics](https://k6.io/docs/using-k6/metrics/reference) and functionality for [creating custom metrics](https://k6.io/docs/using-k6/metrics/create-custom-metrics). [Groups and tags](https://k6.io/docs/using-k6/tags-and-groups/) are useful to filtering results in scenarios and complex tests.
 
 #### 1f: Removing the boilerplate
 
@@ -266,7 +280,7 @@ export const options = {
 
 So far, we've used the `setup` and `teardown` stages, which runs **once per test invocation**. We'll now look at different ways to create test data using the [`init` stage](https://k6.io/docs/using-k6/test-lifecycle/). This is just a fancy name of putting code outside a function, i.e. in the global scope. The code in the `init` scope will generally be run **once per VU**, and can be used to generate useful test code. The `init` stage restricts HTTP calls, meaning that it's not possible to call any of the `http.*` functions to create test data. `setup()` must be used instead if you need to perform HTTP requests.
 
-1. In the `init` stage, create a list of ten random todo list names, `todoListNames`, using a `for`-loop and the `randInt` function from `utils.js` that's also used for creating unique usernames. In the VU stage function, use a random name from the array every time (i.e., use this: `todoListNames[randInt(0, todoListNames.length)]`). This illustrates how to create unique variables per VU, which can be useful for generating test data. Run the test and verify everything works correctly.
+1. In the `init` stage, create a list of ten random todo list names, `todoListNames`, using a `for`-loop and the `randomIntBetween` function from `utils.js` that's also used for creating unique usernames. In the VU stage function, use a random name from the array every time (i.e., use this: `todoListNames[randomIntBetween(0, todoListNames.length)]`). This illustrates how to create unique variables per VU, which can be useful for generating test data. Run the test and verify everything works correctly.
 
 
     <details>
@@ -277,14 +291,14 @@ So far, we've used the `setup` and `teardown` stages, which runs **once per test
     ```js
     const todoListNames = []
     for (let i = 0; i < 10; i++) {
-      todoListNames.push(`Todo list name #${randInt(0, 100000)}`)
+      todoListNames.push(`Todo list name #${randomIntBetween(0, 100000)}`)
     }
     ```
 
     </details>
 
 
-2. The previous example generates unique test data per VU. It is also possible to share (read only) test data between VUs, using `SharedArray`. `SharedArray` will create a shared array **once** for all VUs, saving a lot of memory when running many VUs in parallel. A `SharedArray` can be created by modifying the code like this: 
+2. The previous example generates unique test data per VU. It is also possible to share (read only) test data between VUs, using `SharedArray`. `SharedArray` will create a shared array **once** for all VUs, saving a lot of memory when running many VUs in parallel. A `SharedArray` can be created by modifying the code like this:
 
     ```js
     const todoListNames = new SharedArray('todoListNames`, function() {
@@ -303,7 +317,7 @@ So far, we've used the `setup` and `teardown` stages, which runs **once per test
     const todoListNames = new SharedArray('todoListNames', function() {
       const todoListNames = []
       for (let i = 0; i < 10; i++) {
-        todoListNames.push(`Todo list name #${randInt(0, 100000)}`)
+        todoListNames.push(`Todo list name #${randomIntBetween(0, 100000)}`)
       }
       return todoListNames;
     })
@@ -332,7 +346,7 @@ Like mentioned in task 2d, we can't call `http.*` functions to create test data.
       const userIds = [];
       for (let i = 0; i < 100; i++)
       {
-        const username = `user-2d-${randInt(0, 100000000)}`;
+        const username = `user-2d-${randomIntBetween(0, 100000000)}`;
         const email = `${username}@test.no`
 
         const createdUser = createUser(username, email);
@@ -351,7 +365,7 @@ Like mentioned in task 2d, we can't call `http.*` functions to create test data.
       {
         deleteUser(userIds[i]);
       }
-    } 
+    }
     ```
 
     </details>
@@ -368,7 +382,7 @@ Like mentioned in task 2d, we can't call `http.*` functions to create test data.
     ```js
     export default function(userIds) {
       const userId = userIds[vu.idInTest-1];
-      createTodoList(userId, todoListNames[randInt(0,todoListNames.length)]);
+      createTodoList(userId, todoListNames[randomIntBetween(0,todoListNames.length)]);
     }
     ```
 
@@ -399,19 +413,19 @@ We'll implement all of these scenarios, but for the sake of the tutorial and sho
 
 1. Create a new file, `create-todo-scenarios.js`.
 
-2. Let's start with **scenario 1**. In the `export default function`, create a user, create a todo list for the user and add 5 todos to the list. The description of the todo does not matter. There's a 50ms delay between adding each todo (use `sleep(0.05)`). 
+2. Let's start with **scenario 1**. In the `export default function`, create a user, create a todo list for the user and add 5 todos to the list. The description of the todo does not matter. There's a 50ms delay between adding each todo (use `sleep(0.05)`).
 
-    We'll make this a scenario in the next step, for now verify that the code works by running k6 with a low number of VUs for a short duration. 
+    We'll make this a scenario in the next step, for now verify that the code works by running k6 with a low number of VUs for a short duration.
 
     <details>
 
     <summary>:moneybag: Extra credit: Making the traffic even more realistic</summary>
 
-    Create a randomized number of todos (3-10) in the todo list (use `randInt`) to better simulate realistic traffic.
+    Create a randomized number of todos (3-10) in the todo list (use `randomIntBetween`) to better simulate realistic traffic.
 
     </details>
 
-3. We'll assume the users signing up are evenly spread out inside the time range, and we'll therefore use the [constant arrival rate executor](https://k6.io/docs/using-k6/scenarios/executors/constant-arrival-rate/). What should `duration`, `rate` and `timeUnit` be for this scenario (remember, 1 hour "real time" = 5 seconds)? Create an `options` object (like previous tasks, remember to `export` it!), and add a `signups` scenario, using constant arrival rate, the `duration`, `rate` and `timeUnit` you decided, and `preAllocatedVUs` = 1. 
+3. We'll assume the users signing up are evenly spread out inside the time range, and we'll therefore use the [constant arrival rate executor](https://k6.io/docs/using-k6/scenarios/executors/constant-arrival-rate/). What should `duration`, `rate` and `timeUnit` be for this scenario (remember, 1 hour "real time" = 5 seconds)? Create an `options` object (like previous tasks, remember to `export` it!), and add a `signups` scenario, using constant arrival rate, the `duration`, `rate` and `timeUnit` you decided, and `preAllocatedVUs` = 1.
 
     <details>
 
@@ -433,7 +447,7 @@ We'll implement all of these scenarios, but for the sake of the tutorial and sho
 
 #### 3b: Scenario 2
 
-1. Moving on to **scenario 2**. Create 100 test users with corresponding todo lists in `setup()`, using a similar approach to what you did in task 2e. Create a function called `todos` for our new `todos` scenario - it should select its todo list from the parameter, create, patch and delete some todos. `sleep` in between operations (50-150ms should be enough). 
+1. Moving on to **scenario 2**. Create 100 test users with corresponding todo lists in `setup()`, using a similar approach to what you did in task 2e. Create a function called `todos` for our new `todos` scenario - it should select its todo list from the parameter, create, patch and delete some todos. `sleep` in between operations (50-150ms should be enough).
 
     To simulate the number of VUs increasing and decreasing, use the [ramping VUs executor](https://k6.io/docs/using-k6/scenarios/executors/ramping-vus/). We've already used the simplified syntax for this when using `stages` before, remember? In total, you need 5 stages to simulate the scenario described. Use 40 `startVUs`. Run the test and confirm that everything still works.
 
