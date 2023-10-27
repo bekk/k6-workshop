@@ -1,11 +1,12 @@
 import http from "k6/http";
 
-import { createTodoList, createUser, deleteUser, randInt } from './utils.js'
+import { createTodoList, createUser, deleteUser } from './utils.js'
 import { SharedArray } from "k6/data";
 import { vu } from "k6/execution"
 
-const BASE_URL = 'http://localhost:3000'
+import { randomIntBetween } from 'https://jslib.k6.io/k6-utils/1.4.0/index.js'
 
+// Task 2c
 export const options = {
   //duration: '5s',
   //vus: 10,
@@ -16,19 +17,29 @@ export const options = {
   ],
 }
 
+// Task 2d
+/*
+const todoListNames = []
+for (let i = 0; i < 10; i++) {
+  todoListNames.push(`Todo list name #${randomIntBetween(0, 100000)}`)
+}
+return todoListNames;
+*/
 const todoListNames = new SharedArray('todoListNames', function() {
   const todoListNames = []
   for (let i = 0; i < 10; i++) {
-    todoListNames.push(`Todo list name #${randInt(0, 100000)}`)
+    todoListNames.push(`Todo list name #${randomIntBetween(0, 100000)}`)
   }
   return todoListNames;
 })
 
 export function setup() {
+  // Task 2e
   const userIds = [];
   for (let i = 0; i < 100; i++)
   {
-    const username = `user-2d-${randInt(0, 100000000)}`;
+    // Task 2b
+    const username = `user-2d-${randomIntBetween(0, 100000000)}`;
     const email = `${username}@test.no`
 
     const createdUser = createUser(username, email);
@@ -38,14 +49,30 @@ export function setup() {
 }
 
 export default function(userIds) {
+  // Task 2a
+  /*
+  const createdUser = createUser(username, email);
+
+  if (createdUser !== null) {
+    const userId = createdUser.id;
+
+    createTodoList(userId, "Todo list name");
+    deleteUser(userId);
+  }
+  */
+  // Task 2e
   const userId = userIds[vu.idInTest-1];
-  createTodoList(userId, todoListNames[randInt(0,todoListNames.length)]);
+  // Task 2b, 2d
+  createTodoList(userId, todoListNames[randomIntBetween(0,todoListNames.length)]);
+
 }
 
 export function teardown(userIds)
 {
+  // Task 2e
   for (let i = 0; i < 100; i++)
   {
+    // Task 2b
     deleteUser(userIds[i]);
   }
 } 

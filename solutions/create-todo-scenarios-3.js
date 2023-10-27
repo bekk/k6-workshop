@@ -1,6 +1,8 @@
-import { createTodo, createTodoList, createUser, deleteTodo, deleteUser, patchTodo, randInt } from './utils.js'
+import { createTodo, createTodoList, createUser, deleteTodo, deleteUser, patchTodo } from './utils.js'
 import { sleep } from "k6";
 import { vu, scenario } from "k6/execution"
+
+import { randomIntBetween } from 'https://jslib.k6.io/k6-utils/1.4.0/index.js'
 
 export const options = {
   scenarios: {
@@ -47,7 +49,7 @@ export function setup() {
   const todoListIds = [];
   for (let i = 0; i < 500; i++)
   {
-    const username = `user-3a-${randInt(0, 100000000)}`;
+    const username = `user-3a-${randomIntBetween(0, 100000000)}`;
     const email = `${username}@test.no`
     const user = createUser(username, email)
     const todoList = createTodoList(user.id, "todolist name");
@@ -57,7 +59,7 @@ export function setup() {
   const userIds = [];
   for (let i = 0; i < 480; i++)
   {
-    const username = `user-3a-${randInt(0, 100000000)}`;
+    const username = `user-3a-${randomIntBetween(0, 100000000)}`;
     const email = `${username}@test.no`
     const user = createUser(username, email)
     userIds.push(user.id)
@@ -69,13 +71,13 @@ export function setup() {
 const todoListNames = new SharedArray('todoListNames', function() {
   const todoListNames = []
   for (let i = 0; i < 10; i++) {
-    todoListNames.push(`Todo list name #${randInt(0, 100000)}`)
+    todoListNames.push(`Todo list name #${randomIntBetween(0, 100000)}`)
   }
   return todoListNames;
 })
 
 export function setup() {
-  const username = `user-3a-${randInt(0, 100000000)}`;
+  const username = `user-3a-${randomIntBetween(0, 100000000)}`;
   const email = `${username}@test.no`
 
   const user = createUser(username, email)
@@ -84,7 +86,7 @@ export function setup() {
 */
 
 export function signups() {
-  const username = `user-3a-${randInt(0, 100000000)}`;
+  const username = `user-3a-${randomIntBetween(0, 100000000)}`;
   const email = `${username}@test.no`
   const user = createUser(username, email);
   const userId = user.id;
@@ -92,7 +94,7 @@ export function signups() {
   const todoList = createTodoList(userId, "Name of todolist")
   const todoListId = todoList.id;
 
-  const iterations = randInt(3, 11);
+  const iterations = randomIntBetween(3, 11);
   for (let i = 0; i < iterations; i++)
   {
     createTodo(todoListId, "Test")
@@ -117,7 +119,7 @@ export function todos(data) {
 }
 
 export function lunchTime() {
-  const username = `user-3a-${randInt(0, 100000000)}`;
+  const username = `user-3a-${randomIntBetween(0, 100000000)}`;
   const email = `${username}@test.no`;
   createUser(username, email);
 }
