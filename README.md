@@ -4,8 +4,9 @@
 
 For this workshop you need:
 
-* Docker and docker-compose. This tutorial assumes a Docker-compatible CLI is used to run the demo app and database, but any compatible tool can be used.
 * [k6](https://k6.io/docs/get-started/installation/)
+* `git` and a shell
+* Your preferred editor/IDE for JavaScript, e.g., VS Code
 
 ## Getting started
 
