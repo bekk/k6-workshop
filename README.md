@@ -11,8 +11,8 @@ For this workshop you need:
 ## Getting started
 
 1. Clone the repository: `git clone https://github.com/bekk/k6-workshop`.
-2. You should have received a provisioned app by the workshop facilitator. The URL should be on the format `api.<unique-id>.cloudlabs-azure.no`.
-3. The app is available at `api.<unique-id>.cloudlabs-azure.no`. Verify the app is running correctly by running `curl https://api.<unique-id>.cloudlabs-azure.no/healthcheck`, or opening `https://api.<unique-id>.cloudlabs-azure.no/healthcheck` in the browser. You should see a message stating that the database connection is ok.
+2. You should have received a provisioned app by the workshop facilitator. The URL should be on the format `https://api.<xx>.cloudlabs-azure.no`.
+3. The app is available at `https://api.<xx>.cloudlabs-azure.no`. Verify the app is running correctly by running `curl https://api.<xx>.cloudlabs-azure.no/healthcheck`, or opening `https://api.<xx>.cloudlabs-azure.no/healthcheck` in the browser. You should see a message stating that the database connection is ok.
 
 You should now be ready to go!
 
@@ -22,7 +22,7 @@ You should now be ready to go!
 
 #### 1a: The first k6 function
 
-1. Open `load-tests/contants.js`, and update `BASE_URL` with your `<unique-id>`.
+1. Open `load-tests/contants.js`, and update `BASE_URL` with your `https://api.<xx>.cloudlabs-azure.no` URL.
 
 2. In the `load-tests` folder, create a file named `create-users.js`, and put the following code in it:
 
@@ -59,11 +59,24 @@ You should now be ready to go!
 
     Run: `k6 run --duration 5s --vus 100 create-users.js`
 
-    Here, we simulate 100 virtual users (VUs) making continuous requests for 5 seconds. Depending on hardware, OS and other factors, you might see warnings about dropped connections. Take a look at the `iterations` field in the output, which shows the total number of times the default exported function is run (the above command runs ~1800 iterations on a 2019 MacBook Pro running towards a local Docker container). Try experimenting with a different VUs and durations to see what the limits of the system you're testing are.
+    Here, we simulate 100 virtual users (VUs) making continuous requests for 5 seconds. Depending on hardware, OS and other factors, you might see warnings about dropped connections. Take a look at the `iterations` field in the output, which shows the total number of times the default exported function is run (the above command should run at least 200 iterations towards a B1 tier Azure App Service).
 
-    :warning: Doing this in the cloud might incur unexpected costs and/or troubles for other services on shared infrastructure!
+    Try experimenting with a different VUs and durations to see what the limits of the system and network you're testing are. Please note:
 
-5. The previous test is not realistic, because it's the equivalent of a 100 users simultaneously clicking a "Create user" button as fast as they can. Therefore, `sleep` can be used to simulate natural delays in usage, e.g., to simulate polling at given intervals, delays caused by network, user interactions and/or rendering of UI. At the top of the file, add `import { sleep } from 'k6'`, and at the bottom of the function (after the `http.post`) add `sleep(1)` to sleep for one second. Running the command from the previous step should now result in about 500 iterations (5s * 100 users), but throttling (network, database, etc.) might cause additional delays and fewer iterations.
+    * Your network resources are limited by your operating system configuration and network, you will likely see warnings emitted from the k6 runtime similar to some of the below:
+
+        ```text
+        WARN[0047] Request Failed      error="Post \"https://api.00.cloudlabs-azure.no/users\": dial: i/o timeout"
+        WARN[0023] Request Failed      error="Post \"https://api.00.cloudlabs-azure.no/users\": dial tcp 20.105.216.18:443: connect: can't assign requested address"
+        ```
+
+        For the workshop, this means you've reached the limits and there's no point in scaling further, for now.. In a real-world use case, you'd probably want to look at options to [scale k6](https://k6.io/docs/get-started/running-k6/#execution-modes) or [tuning the OS](https://k6.io/docs/misc/fine-tuning-os/).
+
+    * The test will run longer than the allotted duration. This is because each running VU is given 30 seconds to exit before it's killed (this timeout is configurable).
+
+    * :warning: Doing this in the cloud might incur unexpected costs and/or troubles for other services on shared infrastructure! In this workshop, everyone runs separate instances that does not autoscale, so no additional costs will incur.
+
+5. The previous test is not realistic, because it's the equivalent of a 100 users simultaneously clicking a "Create user" button as fast as they can. Therefore, `sleep` can be used to simulate natural delays in usage, e.g., to simulate polling at given intervals, delays caused by network, user interactions and/or rendering of UI. At the top of the file, add `import { sleep } from 'k6'`, and at the bottom of the function (after the `http.post`) add `sleep(1)` to sleep for one second. Running the command from the previous step would result in about 500 iterations (5s * 100 users) without network delay, but throttling (network, database, etc.) will cause additional delays and fewer iterations.
 
     :bulb: If you can look at the logs, observe that the requests occur in batches. All virtual users run their requests at approximately the same time, then sleeps for a second, and so on. We'll look at how to more realistically distribute the load using other methods later.
 
@@ -81,16 +94,48 @@ check(response, {
 })
 ```
 
-1. Get the response from the POST request, and verify that the response status code is `200`. Run k6 like before, and see that the checks pass as expected.
+1. Get the response from the POST request, and verify that the response status code is `200` using `check`. Remember to add `check` to the import from `k6` (`import { check, sleep } from 'k6').. Run k6 like before, and see that the checks pass as expected.
 
-You can get the response body by using the `Response.json()` method:
+    You can get the response body by using the `Response.json()` method:
 
-```js
-const response = http.post('[...]/users', ...)
-const createdUser = response.json()
-```
+    ```js
+    const response = http.post('[...]/users', ...) // This call is unchanged from the previous step
+    const createdUser = response.json()
+    ```
 
-2. Add another call to `check` that verifies that `username` and `email` in the response corresponds with what was sent in the request. Test your solution by running k6 like before.
+    When testing new code, running with 1 VU for 1 iterations, is enought to test the code: `k6 --iterations 1 --vus 1 create-users.js`. You can use `k6 --vus 100 --duration 5s create-users.js` when you want to test performance.
+
+2. Add a call to `check` that verifies that `username` and `email` in the response corresponds with what was sent in the request. Test your solution by running k6 like before.
+
+    <details>
+
+    <summary>Hint: Calling `check(...)`</summary>
+
+    Your code should now look something like this:
+
+    ```js
+    export default function() {
+      const username = `user-1a-${randomIntBetween(0, 1000000000)}`;
+      const email = `${username}@test.no`
+
+      const response = http.post(`${BASE_URL}/users`, JSON.stringify({
+        username: username,
+        email: email
+      }), {
+        headers: { 'Content-Type': 'application/json' },
+      })
+
+      const createdUser = response.json()
+
+      check(createdUser, {
+        'username is correct': (u) => u.username == username,
+        'email is correct': (u) => u.email == email
+      })
+    }
+    ```
+
+    </details>
+
 
     <details>
 
@@ -104,16 +149,41 @@ const createdUser = response.json()
 
 :information_source: You can check out the [documentation](https://k6.io/docs/using-k6/checks/) for more information about `check`.
 
-#### 1c: Calling multiple endpoints
+#### 1c: Handling error status codes that are correct
+
+You might already have encountered non-successful error codes. Trying to create a user with a non-unique username or email will return a `409` response. This is a valid response, so we'd like this to count as a successful HTTP response in our statistics. (This might not be what you normay want, depending on what you actually want to test.)
+
+1. Make range of the random numbers generated for the username smaller, by changing the first line in the function to: ``const username = `user-1d-${randomIntBetween(0, 100)}`;``. Adjust up the duration and VUs using `k6 run --duration 15s --vus 200 create-users.js`, and see that your tests and checks fails when running k6.
+
+2. We can specify that `409` is an expected status for the `http.post` call. We will use a *responseCallback* and give it as a parameter to the `http.post` method. Modify the `http.post` method to add the `responseCallback`
+
+```js
+const response = http.post(`...`, JSON.stringify({
+  // ... - like before
+}), {
+  headers: { 'Content-Type': 'application/json' },
+  responseCallback: http.expectedStatuses(200, 409)
+})
+```
+
+k6 will now consider `409` a valid response status code. Also remove or modify the previous check for 200 response status code. Run k6 again, verify that all checks succeed and `http_req_failed` is `0.00%`.
+
+:bulb: Remember to adjust back to `randomIntBetween(0, 100000000)` before moving on.
+
+:information_source: You can read more about [configuring `expectedStatuses`](https://k6.io/docs/javacript-api/k6-http/expectedstatuses/), [`responseCallback`](https://k6.io/docs/javascript-api/k6-http/setresponsecallback/) and [`http.*` method params](https://k6.io/docs/javascript-api/k6-http/params/) in the documentation.
+
+
+#### 1d: Calling multiple endpoints
 
 `http.get(url)` can be used to perform a GET request to the supplied `url` and generate statistics for the summary report. The URL to get the user with `id` is `/users/[id]`. You can get the `id` from the response after creating the user:
 
 ```js
 const createdUser = response.json();
+// ... - check omitted
 const id = createdUser.id;
 ```
 
-1. Add a request to get the user. Test that it works as expected.
+1. Add a request to get the user using `http.get(...)`. Test that it works as expected.
 
     <details>
 
@@ -127,29 +197,7 @@ const id = createdUser.id;
 
     </details>
 
-2. Add a check for the response, verifying that the status and `id` in the returned body is correct.
-
-#### 1d: Handling status codes that should be handled as errors
-
-You might already have encountered non-successful error codes. Trying to create a user with a non-unique username or email will return a `409` response.
-
-1. Make range of the random numbers generated for the username smaller, by changing the first line in the function to: ``const username = `user-1d-${randomIntBetween(0, 100)}`;``. Adjust up the duration and VUs using `k6 run --duration 15s --vus 200 create-users.js`, and see that your tests and checks fails when running k6.
-
-2. We can specify that `409` is an expected status for the `http.post` call. We will use a *responseCallback* and give it as a parameter to the `http.post` method. Modify the `http.post` method:
-
-```js
-const response = http.post(`...`, JSON.stringify({
-  ...
-}), {
-  headers: { 'Content-Type': 'application/json' },
-  responseCallback: http.expectedStatuses(200, 409)
-})
-```
-
-k6 will now consider `409` a valid response status code. Also remove or modify the previous check for 200 response status code. Run k6 again, verify that all checks succeed and `http_req_failed` is `0.00%`.
-
-
-:information_source: You can read more about [configuring `expectedStatuses`](https://k6.io/docs/javacript-api/k6-http/expectedstatuses/), [`responseCallback`](https://k6.io/docs/javascript-api/k6-http/setresponsecallback/) and [`http.*` method params](https://k6.io/docs/javascript-api/k6-http/params/) in the documentation.
+2. Add a check for the response, verifying that the status and `id` in the returned body is correct. This should be done in with a separate call to `check`, after the `getUserResponse`. Remember to test your code.
 
 #### 1e: Thresholds
 
@@ -176,9 +224,9 @@ export default function () {
 
     :information_source: [The documentiation](https://k6.io/docs/using-k6/thresholds/) gives a good overview of different ways to use thresholds.
 
-3. Add a new threshold: `'http_reqs{status:500}: ['count<1']`. This threshold is using the built-in `http_reqs` *Counter* metric, and filtering on the `status` *tag*, and setting the threshold to less than 1 (i.e., none), so that the load test will fail if we get 500 responses. Run the test with 1000 VUs over 10 seconds, and look at how it fails.
+3. Add a new threshold: `'http_reqs{status:500}: ['count<1']`. This threshold is using the built-in `http_reqs` *Counter* metric, and filtering on the `status` *tag*, and setting the threshold to less than 1 (i.e., none), so that the load test will fail if we get `500` responses. Run the test with 1000 VUs over 10 seconds, and look at how it fails. Look for `{ status:500 }` in the output, it should have a check mark or red x next to it.
 
-4. If you want to *track* a metric (i.e., get it in the output summary), you can add a threshold without checks. Add the threshold `'http_reqs{status:200}': []` and run the tests again.
+4. If you want to *track* a metric (i.e., get it in the output summary), you can add a threshold without checks. Add the threshold `'http_reqs{status:200}': []` and run the tests again. Notice that `{ status:200 }` does not have a check mark or red x, because it doesn't have any thresholds associated with it.
 
     :information_source: There are [different types of metrics](https://k6.io/docs/using-k6/metrics/), and k6 has many [built-in metrics](https://k6.io/docs/using-k6/metrics/reference) and functionality for [creating custom metrics](https://k6.io/docs/using-k6/metrics/create-custom-metrics). [Groups and tags](https://k6.io/docs/using-k6/tags-and-groups/) are useful to filtering results in scenarios and complex tests.
 
@@ -391,7 +439,7 @@ Like mentioned in task 2d, we can't call `http.*` functions to create test data.
 
 3. Run the test, and verify that it runs correctly. If you look at the application logs, notice that the `ownerId` for created todo lists varies.
 
-:information_source: There are many [execution context variables](https://k6.io/docs/using-k6/execution-context-variables/) to choose from.
+    :information_source: There are many [execution context variables](https://k6.io/docs/using-k6/execution-context-variables/) to choose from.
 
 ### 3: Todos
 
