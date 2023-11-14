@@ -224,7 +224,7 @@ export default function () {
 
     :information_source: [The documentiation](https://k6.io/docs/using-k6/thresholds/) gives a good overview of different ways to use thresholds.
 
-3. Add a new threshold: `'http_reqs{status:500}: ['count<1']`. This threshold is using the built-in `http_reqs` *Counter* metric, and filtering on the `status` *tag*, and setting the threshold to less than 1 (i.e., none), so that the load test will fail if we get `500` responses. Run the test with 1000 VUs over 10 seconds, and look at how it fails. Look for `{ status:500 }` in the output, it should have a check mark or red x next to it.
+3. Add a new threshold: `'http_reqs{status:500}': ['count<1']`. This threshold is using the built-in `http_reqs` *Counter* metric, and filtering on the `status` *tag*, and setting the threshold to less than 1 (i.e., none), so that the load test will fail if we get `500` responses. Run the test with 1000 VUs over 10 seconds, and look at how it fails. Look for `{ status:500 }` in the output, it should have a check mark or red x next to it.
 
 4. If you want to *track* a metric (i.e., get it in the output summary), you can add a threshold without checks. Add the threshold `'http_reqs{status:200}': []` and run the tests again. Notice that `{ status:200 }` does not have a check mark or red x, because it doesn't have any thresholds associated with it.
 
