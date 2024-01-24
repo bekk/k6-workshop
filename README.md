@@ -70,7 +70,7 @@ You should now be ready to go!
         WARN[0023] Request Failed      error="Post \"https://api.00.cloudlabs-azure.no/users\": dial tcp 20.105.216.18:443: connect: can't assign requested address"
         ```
 
-        For the workshop, this means you've reached the limits and there's no point in scaling further, for now.. In a real-world use case, you'd probably want to look at options to [scale k6](https://k6.io/docs/get-started/running-k6/#execution-modes) or [tuning the OS](https://k6.io/docs/misc/fine-tuning-os/).
+        For the workshop, this means you've reached the limits and there's no point in scaling further, for now. In a real-world use case, you'd probably want to look at options to [scale k6](https://k6.io/docs/get-started/running-k6/#execution-modes) or [tuning the OS](https://k6.io/docs/misc/fine-tuning-os/).
 
     * The test will run longer than the allotted duration. This is because each running VU is given 30 seconds to exit before it's killed (this timeout is configurable).
 
@@ -94,7 +94,7 @@ check(response, {
 })
 ```
 
-1. Get the response from the POST request, and verify that the response status code is `200` using `check`. Remember to add `check` to the import from `k6` (`import { check, sleep } from 'k6').. Run k6 like before, and see that the checks pass as expected.
+1. Get the response from the POST request, and verify that the response status code is `200` using `check`. Remember to add `check` to the import from `k6` (`import { check, sleep } from 'k6'). Run k6 like before, and see that the checks pass as expected.
 
     You can get the response body by using the `Response.json()` method:
 
@@ -216,13 +216,15 @@ export default function () {
 }
 ```
 
+These thresholds use the [built-in metrics](https://k6.io/docs/using-k6/metrics/reference/) to decide whether the system under test has acceptable performance.
+
 1. Create thresholds for testing that 95% requests are served in less than 500ms and the average response duration is less than 300ms (using the `http_req_duration` *Trend* metric). Run the test with 100 VUs over 10 seconds, and see if they succeed.
 
     :bulb: k6 displays the error in multiple ways by default. The default summary contains a red cross or green checkmark next to the metric, and an error message is also printed. In addition, the exit code is also erroneous, which is very useful for automated performance testing using CI/CD.
 
 2. Modify the threshold so that it succeeds.
 
-    :information_source: [The documentiation](https://k6.io/docs/using-k6/thresholds/) gives a good overview of different ways to use thresholds.
+    :information_source: [The documentation](https://k6.io/docs/using-k6/thresholds/) gives a good overview of different ways to use thresholds.
 
 3. Add a new threshold: `'http_reqs{status:500}': ['count<1']`. This threshold is using the built-in `http_reqs` *Counter* metric, and filtering on the `status` *tag*, and setting the threshold to less than 1 (i.e., none), so that the load test will fail if we get `500` responses. Run the test with 1000 VUs over 10 seconds, and look at how it fails. Look for `{ status:500 }` in the output, it should have a check mark or red x next to it.
 
@@ -441,11 +443,17 @@ Like mentioned in task 2d, we can't call `http.*` functions to create test data.
 
     :information_source: There are many [execution context variables](https://k6.io/docs/using-k6/execution-context-variables/) to choose from.
 
-### 3: Todos
 
-We've now been through the simplest usage of k6. This and following tasks will contain less help, and you will likely need to read the documentation when links are provided for guidance.
+### Taking the next steps
 
-We will now start working with scenarios. Scenarios are useful for simulating realistic user/traffic patterns and gives lots of flexibility in load tests. A scenario is a single traffic pattern, and by combining scenarios, we can simulate complex usage patterns. For instance, imagine the following scenarios:
+We've now been through the simplest usage of k6. The following tasks will contain less guidance, and you will likely need to read the documentation when links are provided to learn and figure out how to do it.
+
+You can do the tasks in almost any order, depending on what you're interested in.
+
+
+#### 3: Scenarios (todos)
+
+In this task we'll work with scenarios. Scenarios are useful for simulating realistic user/traffic patterns and gives lots of flexibility in load tests. A scenario is a single traffic pattern, and by combining scenarios, we can simulate complex usage patterns. For instance, imagine the following scenarios:
 
 * Scenario 1: About 20 users signs up each hour. Each user creates a todo list, and adds a couple of todos.
 * Scenario 2: The application has a baseline of a 20 users 24/7, creating, modifying and deleting todos on existing todo lists. On top of the baseline usage, the traffic starts increasing about 6 in the morning, ramps up to about 100 (total) users by 11 and stays like that until 15, when it starts to slowly decrease down to the baseline 20 again.
@@ -458,7 +466,7 @@ We'll implement all of these scenarios, but for the sake of the tutorial and sho
 
 `utils.js` has three helper methods for working with todos: `createTodo(todoListId, description, completed, [params])`, `patchTodo(todoListId, todoId, [description], [completed], [params])` and `deleteTodo(todoListId, todoId, [params])`, all of which return the state of the modified todo.
 
-#### 3a: Scenario 1
+##### 3a: Scenario 1 - constant arrival rate executor
 
 1. Create a new file, `create-todo-scenarios.js`.
 
@@ -494,25 +502,60 @@ We'll implement all of these scenarios, but for the sake of the tutorial and sho
 
 5. To accommodate for multiple scenarios, we will stop using `export default function()` and instead use "scenario functions". Remove `default` and name the function `signups`. In the definition of the scenario (in the `options` object), add `exec: 'signups'`. Read more in the [additional lifecycle functions documentation](https://k6.io/docs/using-k6/test-lifecycle/#additional-lifecycle-functions). Re-run the test to verify that it still works.
 
-#### 3b: Scenario 2
+##### 3b: Scenario 2 - ramping VUs executor
 
 1. Moving on to **scenario 2**. Create 100 test users with corresponding todo lists in `setup()`, using a similar approach to what you did in task 2e. Create a function called `todos` for our new `todos` scenario - it should select its todo list from the parameter, create, patch and delete some todos. `sleep` in between operations (50-150ms should be enough).
 
     To simulate the number of VUs increasing and decreasing, use the [ramping VUs executor](https://k6.io/docs/using-k6/scenarios/executors/ramping-vus/). We've already used the simplified syntax for this when using `stages` before, remember? In total, you need 5 stages to simulate the scenario described. Use 40 `startVUs`. Run the test and confirm that everything still works.
 
-#### 3b: Scenario 3
+##### 3b: Scenario 3 - constant VUs executor
 
 1. For **scenario 3** we'll have 100 users continuously signing up for 1 hour (i.e., 5s for us). We will use the [constant VUs executor](https://k6.io/docs/using-k6/scenarios/executors/constant-vus/). However, because we don't want do this from the start, but during "lunch time" the executor needs to have a delayed start. For that we'll use `startTime`, one of the [common scenario options](https://k6.io/docs/using-k6/scenarios/#options), with a good example [here](https://k6.io/docs/using-k6/scenarios/advanced-examples/#combine-scenarios).
 
     Create a function `lunchTime` that creates a single user, and a `lunchTime` scenario to execute the function. Run the test. Notice that our scenario is in a `waiting` state with a countdown until `startTime` time has passed.
 
-#### 3b: Scenario 4
+##### 3b: Scenario 4 - batching requests with the constant arrival rate executor
 
-1. Finally, for **scenario 4**, we're looking at a scenario with repeating spikes in traffic every "hour", typical for applications with batch jobs that runs every hour/day/etc. There are no executors that directly support this repeated spike pattern, but we can use different methods to simulate it. We'll use a the [constant arrival rate executor](https://k6.io/docs/using-k6/scenarios/executors/constant-arrival-rate/) again, with `rate = 1` and `timeUnit = 5s` deleting 20 users with a loop in the scenario function (what should `duration` and `preAllocatedVUs` be, and why does this work?).
+1. Finally, for **scenario 4**, we're looking at a scenario with repeating spikes in traffic every "hour", typical for applications with batch jobs that runs every hour/day/etc. There are no executors that directly support this repeated spike pattern, but we can use different methods to simulate it. We'll use the [constant arrival rate executor](https://k6.io/docs/using-k6/scenarios/executors/constant-arrival-rate/) again, with `rate = 1` and `timeUnit = 5s` deleting 20 users with a loop in the scenario function (what should `duration` and `preAllocatedVUs` be, and why does this work?).
 
     We'll have to create the users to delete in `setup()`. Since scenario 2 also creates data in setup, we'll have to make sure they don't interfere which each other's test data. This can be achieved by returning an object like `{ todoScenarioTodoListIds: number[], batchScenarioUserIds: number[] }`, each scenario reading their respective lists. Change the `setup()` function, and update scenario 2 to match.
 
     Implement the `batch` scenario function to use the correct array in the object parameter, and loop over the 20 next users. Use the `scenario.iterationInInstance` [execution environment variable](https://k6.io/docs/javascript-api/k6-execution/#scenario) to keep track of where you are in the array. Run the test to confirm that it's working.
+
+#### 4: Custom metrics, tags and groups
+
+Custom metrics, tags and groups gives a lot of flexibility to measuring performance.
+
+1. There are four types of [custom metrics](https://k6.io/docs/javascript-api/k6-metrics/): `Counter`, `Gauge`, `Rate` and `Trend`. Custom metrics are used to extend the set of [built-in metrics](https://k6.io/docs/using-k6/metrics/reference/). These are very useful to measure application- or business-specific metrics. We'll modify the test from task 1 (`create-users.js`) to add a `Rate`.
+
+    Take a look at the [docs for `Rate`](https://k6.io/docs/javascript-api/k6-metrics/rate/) and add a `user_creation_failed` metric that tracks how many user creations that fail. We also want a couple of thresholds for our new metrics: one verifying that the error rate is less than 10% at the end of the test, and one that aborts the test prematurely if the error rate exceeds 30%. Test your metric by reducing the `randomIntBetween(...)` range used to create usernames.
+
+2. Custom metrics are useful, but in many cases using tags might be easier to filter (built-in or custom) metrics that already exist. Tags are used to *categorize* measurements. We've already seen some examples of built-in tags: the `http_reqs` counter metric has a `status` tag for the status code was used for thresholds in a previous task. The [documentation](https://k6.io/docs/using-k6/tags-and-groups/) describes many ways tags can be used.
+
+    Performance metrics can (and usually do) change with changes in load. With a helper library, each stage of a load test can be tagged, giving us insight into performance metrics for each stage. Take a look at the [documentation for tagging stages](https://k6.io/docs/using-k6/tags-and-groups/#tagging-stages). Use your code from task 2 (`create-todo-lists.js`) and add tags for each stage.
+
+    Try to run the program. Observe that the output **does not** contain our tags. This is currently known behavior, with [discussions](https://community.grafana.com/t/show-tag-data-in-output-or-summary-json-without-threshold/99320) and [open issues](https://github.com/grafana/k6/issues/1321) related to this. The workaround is to add the thresholds with empty arrays to the `options` object, in this case:
+
+    ```javascript
+      thresholds: {
+        'http_req_duration{stage:0}': [],
+        'http_req_duration{stage:1}': [],
+        'http_req_duration{stage:2}': [],
+      }
+    ```
+
+    Run again to verify that it works as expected.
+
+    :information_source: The results can be [streamed real time](https://k6.io/docs/results-output/real-time/) as individual data points, including a [JSON file](https://k6.io/docs/results-output/real-time/json/) which can be used to analyze the metrics with tags, without the workaround. Using the workaround is simpler in this workshop.
+
+
+3. Groups are special tags, defined in a special way. Read through [the documentation](https://k6.io/docs/using-k6/tags-and-groups/#groups). We'd like to separate the main VU code from the `setup()` and `teardown()` lifecycle functions. Add a group, `main`, wrapping the main VU code, and a new threshold for `http_req_duration{group:::main}` similar to the previous task. The `:::` is not an error, but a filter using the `::main` tag for the group. Run and verify that you get a separate metric for the new group in the summary.
+
+
+#### 5: Externally controlled executor
+
+For interactive testing, you can use the *externally controlled executor*. This executor can be used to scale up or down, pause and resume a test. Read about the [externally controlled executor](https://k6.io/docs/using-k6/scenarios/executors/externally-controlled/) and [this blog post](https://k6.io/blog/how-to-control-a-live-k6-test/) about controlling it. Modify the `create-users.js` test from previous tasks to use an externally controlled executor.
+
 
 ## Running the app locally
 

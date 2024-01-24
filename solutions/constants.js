@@ -1,1 +1,1 @@
-export const BASE_URL = 'https://api.00dypdykk.cloudlabs-azure.no'
+export const BASE_URL = 'https://api.00.cloudlabs-azure.no'
