@@ -109,7 +109,7 @@ check(response, {
 
     <details>
 
-    <summary>Hint: Calling `check(...)`</summary>
+    <summary>Hint: Calling <code>check(...)</code></summary>
 
     Your code should now look something like this:
 
@@ -187,7 +187,7 @@ const id = createdUser.id;
 
     <details>
 
-    <summary>Hint: Calling `http.get(...)`</summary>
+    <summary>Hint: Calling <code>http.get(...)</code></summary>
 
     `http.get()` does not need any extra arguments than the URL:
 
@@ -336,7 +336,7 @@ So far, we've used the `setup` and `teardown` stages, which runs **once per test
 
     <details>
 
-    <summary>Hint: how to create the array</summary>
+    <summary>Hint: creating the array</summary>
 
 
     ```js
@@ -361,7 +361,7 @@ So far, we've used the `setup` and `teardown` stages, which runs **once per test
 
     <details>
 
-    <summary>Hint: creating the array</summary>
+    <summary>Hint: creating a <code>SharedArray</code></summary>
 
 
     ```js
@@ -387,7 +387,7 @@ Like mentioned in task 2d, we can't call `http.*` functions to create test data.
 
     <details>
 
-    <summary>Hint: loops the `setup()` and `teardown()` functions</summary>
+    <summary>Hint: loops the <code>setup()</code> and <code>teardown()</code> functions</summary>
 
 
     The `setup()` function is similar to before, but with the code wrapped in a loop to create an array to be returned:
@@ -486,7 +486,7 @@ We'll implement all of these scenarios, but for the sake of the tutorial and sho
 
     <details>
 
-    <summary>Hint: `duration`, `rate` and `timeUnit`</summary>
+    <summary>Hint: <code>duration</code>, <code>rate</code> and <code>timeUnit</code></summary>
 
     `duration = 24h * 5s/1h = 120s`
 
