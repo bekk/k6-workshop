@@ -61,6 +61,34 @@ You should now be ready to go!
 
     Here, we simulate 100 virtual users (VUs) making continuous requests for 5 seconds. Depending on hardware, OS and other factors, you might see warnings about dropped connections. Take a look at the `iterations` field in the output, which shows the total number of times the default exported function is run (the above command should run at least 200 iterations towards a B1 tier Azure App Service).
 
+    You can follow the progress in your browser by using the [k6 web dashboard](https://grafana.com/docs/k6/latest/results-output/web-dashboard/). Set `K6_WEB_DASHBOARD=true` for k6 to start it, and `K6_WEB_DASHBOARD_OPEN=true` to automatically open it in your browser (see below for shell-specific instructions). You should have a duration of at least 30 seconds to get interesting visualizations in the dashboard.
+
+
+    <details>
+
+    <summary>k6 web dashobard in Bash/Zsh</summary>
+
+    In your shell, run the following commands:
+    ```
+    export K6_WEB_DASHBOARD=true
+    export K6_WEB_DASHBOARD_OPEN=true
+    ```
+
+    </details>
+
+    <details>
+
+    <summary>k6 web dashobard in PowerShell</summary>
+
+    In your shell, run the following commands:
+
+    ```
+    $Env:K6_WEB_DASHBOARD='true'
+    $Env:K6_WEB_DASHBOARD_OPEN='true'
+    ```
+
+    </details>
+
     Try experimenting with a different VUs and durations to see what the limits of the system and network you're testing are. Please note:
 
     * Your network resources are limited by your operating system configuration and network, you will likely see warnings emitted from the k6 runtime similar to some of the below:
